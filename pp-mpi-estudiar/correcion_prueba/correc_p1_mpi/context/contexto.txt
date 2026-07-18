@@ -1,0 +1,23 @@
+zContexto de estilo y convenciones de código (usar en todas las respuestas):
+
+- Idioma: escribe todo en español (comentarios, mensajes, explicaciones breves).
+- Estilo general: imperativo y directo. Código claro y didáctico, pensado para estudiantes/práctica.
+- Nombres: variables y funciones en español, descriptivos y completos (por ejemplo: filas_local, sendcounts, displs, cantidad_local, scatter_recvbuf). Evitar acrónimos confusos.
+- Tipos y contenedores: uso preferente de arreglos C explícitos (`int*` con `new[]/delete[]`) para ejemplos sencillos; si se usa STL, hacerlo sólo cuando aporte claridad solo si es necesario recuerda siempre priorizar lo que ya esta escrito en codigo.
+- Bucles: usar `for` explícitos con índices (`for (int i = 0; i < n; i++)`), evitar programación funcional (lambdas, std::transform) en ejemplos didácticos.
+- MPI: usar nombres claros (`MPI_Scatterv`, `MPI_Bcast`, `MPI_Gatherv`, `MPI_Reduce`). Mostrar cómo calcular `sendcounts` y `displs` (base + resto, acumulador offset). Usar unidades correctas: `sendcounts` en elementos (enteros) para Scatterv, `recvcounts` en filas/elementos según Gatherv.
+- Seguridad: comprobar casos con 0 elementos (no acceder a `buffer[0]` si tamaño==0), usar `nullptr` en lugar de `NULL`.
+- Incrementos: preferir `i++`
+- Comentarios: breves y en español; explicar la intención (qué hace el bloque), no explicar trivialidades obvias línea a línea.
+- Estructura de ejemplos: mostrar
+  1) inclusión de headers,
+  2) `MPI_Init`/`MPI_Finalize`,
+  3) cálculo de `nprocs`/`rank`,
+  4) inicialización solo en `rank==0`,
+  5) preparación de `sendcounts`/`displs`,
+  6) `Scatterv`/`Bcast`/cálculo local/`Gatherv` o `Reduce`,
+  7) impresión en `rank==0`,
+  8) liberación de memoria.
+- Legibilidad: preferir variables auxiliares (ej. `int offset = 0;`) sobre expresiones anidadas; evitar operadores ternarios dentro de llamadas MPI.
+- Tamaño de cambios: cuando edites archivos, haz cambios mínimos y localizados; si se reemplaza un archivo, deja comentario arriba con la razón.
+

@@ -1,0 +1,78 @@
+#include <mpi.h>
+#include <iostream>
+#include <cstdlib>
+#include <cstdio>
+#include <ctime>
+
+// ============================================================================
+// Estimación de Pi con el método de Monte Carlo, paralelizado con MPI.
+//
+// Idea del algoritmo:
+//   Generamos puntos aleatorios dentro de un cuadrado de lado 2 (de -1 a 1
+//   en x e y) y contamos cuántos caen dentro del círculo unitario inscrito
+//   en ese cuadrado. La proporción (puntos dentro del círculo / puntos
+//   totales) se aproxima a pi/4, así que multiplicándola por 4 obtenemos
+//   una estimación de pi. Cuantos más puntos generemos, mejor la precisión.
+//
+// Por qué es un buen ejemplo de MPI:
+//   - Cada proceso puede generar y evaluar su propia porción de puntos de
+//     forma totalmente independiente (no necesitan datos de otros procesos
+//     mientras calculan), así que el trabajo se reparte de forma pareja.
+//   - Al final solo se necesita combinar UN número por proceso (su conteo
+//     parcial), lo cual es el caso ideal para una reducción (MPI_Reduce).
+//   - No requiere matrices, imágenes ni estructuras de datos complejas:
+//     el foco queda puesto en Init/Finalize, rank/size, Bcast y Reduce.
+// ============================================================================
+
+
+int main(int argc, char** argv)
+{
+    MPI_Init(&argc, &argv);
+
+    int nprocs, rank;
+
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
+
+    long long total_puntos = 1000000;
+
+    if(rank == 0 && argc > 1){
+        total_puntos = atoll(argv[1]);
+
+
+    }
+
+    MPI_Bcast(&total_puntos, 1, MPI_LONG_LONG, 0, MPI_COMM_WORLD);  
+
+    long long puntos_proceso = total_puntos/nprocs;
+
+    if(rank == 0){
+        puntos_proceso += total_puntos % nprocs; // asignar el resto al rank 0
+
+    }
+
+    //Generacion de semilla para cada proceso
+    srand(time(NULL) + rank);
+
+    //logica para el calculo de puntos dentro del circulo
+    long long puntos_dentro_local = 0;
+    for(long long i = 0; i < puntos_proceso; i++){
+        double x = (double)rand() / RAND_MAX;
+        double y = (double)rand() / RAND_MAX;
+        if(x*x + y*y <= 1){
+            puntos_dentro_local++;
+        }
+    }
+
+    // unir todos los proceso con Reduce
+    long long puntos_dentro_global = 0;
+    MPI_Reduce(&puntos_dentro_local, &puntos_dentro_global, 1, MPI_LONG_LONG, MPI_SUM,  0, MPI_COMM_WORLD);
+
+    // Solo el rank 0 imprime el resultado final
+    if(rank == 0){
+        double pi_estimate = 4.0 * puntos_dentro_global / total_puntos;
+        std::cout << "Estimación de Pi: " << pi_estimate << std::endl;
+    }
+
+
+}

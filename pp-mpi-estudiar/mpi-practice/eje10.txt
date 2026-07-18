@@ -1,0 +1,119 @@
+// Ejercicio 10 - Producto matriz × vector
+
+#include <mpi.h>
+#include <cstdio>
+#include <cstdlib>
+#include <iostream>
+
+int main(int argc, char** argv){
+
+    MPI_Init(&argc, &argv);
+
+    int nprocs, rank;
+    MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    int *A = nullptr;
+    int *x = nullptr;
+    int N = 16;
+    int M = 3;
+    int *y_global = new int[N];
+
+    //reservar memoria para todos los procesos:
+    A = new int[N*M];
+    x = new int[M];
+
+    if(rank == 0){
+
+        //llenado de matriz
+        for (size_t i = 0; i < N*M; i++)
+        {
+            A[i] = i;
+            
+        }
+
+        for (size_t i = 0; i < M; i++)
+        {
+            x[i] = i*2 +3;
+        }
+        
+        
+    }
+
+    //distribuir la matriz por filas en procesos Scatterv
+    int base_filas = N / nprocs;
+    int resto_filas = N % nprocs;
+    
+    //hallar sendcounts(arreglo) y displs(arreglos)
+
+    int *sendcounts = new int[nprocs];
+    int *displs = new int[nprocs];
+
+    for (size_t i = 0; i < nprocs; i++)
+    {
+        sendcounts[i] = base_filas * M;
+        if(i < resto_filas){
+            sendcounts[i] += M;
+        }
+    }
+
+    displs[0] = 0;
+    for (size_t i = 1; i < nprocs; i++)
+    {
+        displs[i] = displs[i-1] + sendcounts[i-1];
+    }
+    
+
+    int cantidad_local = sendcounts[rank];
+    int *A_local = new int[cantidad_local];
+
+    MPI_Scatterv(A, sendcounts, displs, MPI_INT, A_local, cantidad_local, MPI_INT, 0, MPI_COMM_WORLD);
+
+    //Enviar una copia a cada rank del vector para poder realizar la multiplicación
+    MPI_Bcast(x, M, MPI_INT, 0, MPI_COMM_WORLD);
+
+    //realizar multiplicacion de matriz por vector
+
+    int filas_local = cantidad_local/M;
+
+    int *y_local = new int[filas_local];
+
+    for (size_t i = 0; i < filas_local; i++)
+    {
+        int suma = 0;
+        for (size_t j = 0; j < M; j++)
+        {
+            suma += A_local[i*M + j] * x[j];
+        }
+        y_local[i] = suma;
+    }
+
+    //Union de los procesos con Gatherv
+
+    //Encontrar sendcounts y displs para Gatherv
+    int *recvcounts = new int[nprocs];
+    int *displs_gatherv = new int[nprocs];
+
+    for (size_t i = 0; i < nprocs; i++)
+    {
+        recvcounts[i] = sendcounts[i]/M;
+    }
+
+    displs_gatherv[0] = 0;
+    for (size_t i = 1; i < nprocs; i++)
+    {
+        displs_gatherv[i] = displs_gatherv[i-1] + recvcounts[i-1];
+    }
+    
+    MPI_Gatherv(y_local, filas_local, MPI_INT, y_global, recvcounts, displs_gatherv, MPI_INT, 0, MPI_COMM_WORLD);
+
+    //impresion
+    if(rank == 0){
+        std::cout << "Resultado (A * x):\n";
+            for (int i = 0; i < N; ++i) {
+                std::cout << y_global[i] << ' ';
+            }
+        std::cout << std::endl;
+    }
+
+}

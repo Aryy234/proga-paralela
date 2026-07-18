@@ -1,0 +1,110 @@
+// ============================================================================
+// Ejercicio 4 - Estadisticas de un arreglo grande con MPI.
+//
+// Estrategia: el proceso 0 genera un arreglo de N numeros aleatorios y lo
+// reparte entre todos los procesos con MPI_Scatterv (se usa la variante "v"
+// porque N no siempre es multiplo exacto de la cantidad de procesos: los
+// primeros procesos reciben un elemento extra para no perder datos). Cada
+// proceso calcula el minimo, el maximo y la suma de su propia porcion, y
+// esos resultados parciales se combinan con tres MPI_Reduce (uno por cada
+// estadistica) en el proceso 0, que es quien imprime el resultado final.
+// ============================================================================
+
+#include <mpi.h>
+#include <iostream>
+#include <cstdio>
+#include <cstdlib>
+
+int main(int argc, char** argv){
+
+    MPI_Init(&argc, &argv);
+
+    int nprocs, rank;
+    MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    int *arreglo = nullptr;
+    int N = 1203650;
+
+    if(rank == 0){
+        arreglo = new int[N];
+        for (size_t i = 0; i < N; i++)
+        {
+            arreglo[i] = 100 * rand() / RAND_MAX;
+        }
+    }
+
+    //si tenemos Scatterv tenermos que encontrar sencounts y displs
+    
+    //1. dividir procesos
+    int base = N / nprocs;
+    int resto = N % nprocs;
+
+    int *sendcounts = new int[nprocs];
+    for (size_t i = 0; i < nprocs; i++)
+    {
+        sendcounts[i] = base;
+
+        if(i < resto){
+            sendcounts[i]++;
+        }
+    }
+
+    int *displs = new int[nprocs];
+    displs[0] = 0;
+    for (size_t i = 1; i < nprocs; i++)
+    {
+        displs[i] = displs[i-1] + sendcounts[i-1];
+
+    }
+
+    //Encontrar la canitdad_local(int) y local(arreglo) para luego utlizar Scatterv
+
+    int cantidad_local = sendcounts[rank];
+    int *arreglo_local = new int[cantidad_local];
+
+    MPI_Scatterv(arreglo, sendcounts, displs, MPI_INT, arreglo_local, cantidad_local, MPI_INT, 0, MPI_COMM_WORLD);
+
+    int max_local = arreglo_local[0];
+    int min_local = arreglo_local[0];
+    int sum_local = 0;
+
+    for (size_t i = 0; i < cantidad_local; i++)
+    {
+        if(max_local < arreglo_local[i]){
+            max_local = arreglo_local[i];
+        }
+
+        if(min_local > arreglo_local[i]){
+            min_local = arreglo_local[i];
+        }
+
+        sum_local += arreglo_local[i];
+    }
+
+    int min_global; 
+    int max_global;
+    int sum_global;
+
+    //max
+    MPI_Reduce(&max_local, &max_global, 1, MPI_INT, MPI_MAX, 0, MPI_COMM_WORLD);
+
+    //min
+    MPI_Reduce(&min_local, &min_global, 1, MPI_INT, MPI_MIN, 0, MPI_COMM_WORLD);
+
+    //sum
+    MPI_Reduce(&sum_local, &sum_global, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+
+    double promedio_global = (double)sum_global / N;
+
+    //imprime el rank 0
+    if(rank == 0){
+        std::cout << "maximo: " << max_global << std::endl;
+        std::cout << "minimo: " << min_global << std::endl;
+        std::cout << "suma: " << sum_global << std::endl;
+        std::cout << "promedio: " << promedio_global << std::endl;
+    }
+
+    MPI_Finalize();
+    
+}

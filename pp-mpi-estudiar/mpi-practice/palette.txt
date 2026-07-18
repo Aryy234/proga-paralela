@@ -1,0 +1,86 @@
+
+# --- Ayudas rápidas MPI (muy breve) ---
+# MPI_Send(buf,count,datatype,dest,tag,comm) : enviar datos a `dest`.
+# MPI_Recv(buf,count,datatype,source,tag,comm,status) : recibir datos de `source`.
+# TAG : entero para clasificar mensajes y evitar confusiones entre comunicaciones.
+# MPI_Status : estructura con .MPI_SOURCE, .MPI_TAG, .MPI_ERROR después de recibir.
+# MPI_Bcast(buf,count,datatype,root,comm) : difunde `buf` desde `root` a todos.
+# MPI_Scatterv(sendbuf,sendcounts,displs,sendtype,recvbuf,recvcount,recvtype,root,comm)
+# MPI_Gatherv(sendbuf,sendcount,sendtype,recvbuf,recvcounts,displs,recvtype,root,comm)
+# MPI_Reduce(sendbuf,recvbuf,count,datatype,op,root,comm) : combinación (SUM,MAX,...).
+
+$env:PATH = "C:/oneAPI/mpi/2021.18/bin;" + $env:PATH 
+
+MPI_Reduce(sendbuf,recvbuf,count,datatype,op,root,comm) : combinación (SUM,MAX,...).
+
+# next / prev (en ejercicio Anillo):
+# - `next`: índice del proceso al que se envía el siguiente mensaje. Se calcula como
+#   `(rank + 1) % nprocs`, de forma que el último proceso envía al proceso 0.
+# - `prev`: índice del proceso del que se recibe el mensaje anterior. Se calcula como
+#   `(rank - 1 + nprocs) % nprocs`, evitando negativos y cerrando el anillo.
+# Uso: `prev/next` permiten recorrer todos los procesos en un anillo con `MPI_Send`/`MPI_Recv` simples.
+
+
+& "C:/oneAPI/mpi/2021.18/bin/mpiexec.exe" -n 4 build/Release/mpi_practice.exe  
+
+  o
+
+& "C:/oneAPI/mpi/2021.18/bin/mpiexec.exe" -n 4 build/Release/mpi_pi.exe 20000000
+
+------------------------------- CmakeLists ---------------------------------------
+
+cmake_minimum_required(VERSION 3.16)
+
+project(mpi_practice CXX)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# -- Configuración de MPI --
+# Este proyecto usa Intel oneAPI MPI instalado en el equipo. Si en tu máquina
+# MPI está en otra ruta, o registrado en el sistema, puedes reemplazar este
+# bloque por `find_package(MPI REQUIRED)` y enlazar contra `MPI::MPI_CXX`.
+set(MPI_ROOT "C:/oneAPI/mpi/2021.18")
+set(MPI_INCLUDE "${MPI_ROOT}/include")
+set(MPI_LIB "${MPI_ROOT}/lib")
+
+include_directories(${MPI_INCLUDE})
+
+add_executable(mpi_practice main.cpp)
+
+target_link_libraries(mpi_practice PRIVATE
+    ${MPI_LIB}/impi.lib
+)
+
+------------------------------- Settings.json ---------------------------------------
+
+{
+  "cmake.generator": "Ninja Multi-Config",
+  "cmake.buildDirectory": "${workspaceFolder}/build",
+  "cmake.configureSettings": {
+    "CMAKE_C_COMPILER": "C:/tools/mingw64/bin/gcc.exe",
+    "CMAKE_CXX_COMPILER": "C:/tools/mingw64/bin/g++.exe",
+    "CMAKE_MAKE_PROGRAM": "C:/tools/mingw64/bin/ninja.exe"
+  }
+}
+
+------------------------------- MPI Parametros ---------------------------------------
+
+MPI_Reduce(const void *sendbuf, void *recvbuf, int count, MPI_Datatype datatype, MPI_Op op, int root, MPI_Comm comm)
+
+MPI_Scatter(const void *sendbuf, int sendcount, MPI_Datatype sendtype, void *recvbuf, int recvcount, MPI_Datatype recvtype, int root, MPI_Comm comm)
+
+MPI_Scatterv(scatter_sendbuf, sendcounts, displs, MPI_INT, scatter_recvbuf, cantidad_local, MPI_INT, 0, MPI_COMM_WORLD);
+
+int MPI_Bcast(void *buffer, int count, MPI_Datatype datatype, int root, MPI_Comm comm);
+
+int MPI_Gather(const void *sendbuf, int sendcount, MPI_Datatype sendtype, void *recvbuf, int recvcount, MPI Datatype recvtype, int root, MPI Comm comm)
+
+int MPI_Gatherv(const void *sendbuf, int sendcount, MPI_Datatype sendtype, void *recvbuf, const int *recvcounts, const int *displs, MPI_Datatype recvtype, int root, MPI_Comm comm);
+
+//Generacion de semilla para cada proceso
+srand(time(NULL) + rank);
+
+
+
+

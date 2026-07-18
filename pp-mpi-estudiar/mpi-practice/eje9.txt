@@ -1,0 +1,100 @@
+// Ejercicio 9 - Suma de dos matrices por filas con MPI.
+//
+// Estrategia: el proceso 0 genera dos matrices cuadradas A y B de tamaño
+// N x N (N multiplo de la cantidad de procesos, para que el reparto por
+// filas sea parejo). Reparte A y B por bloques de filas con dos llamadas
+// separadas a MPI_Scatter (una por matriz). Cada proceso suma elemento a
+// elemento las filas que le tocaron (C_local = A_local + B_local) y el
+// resultado se junta de vuelta en el proceso 0 con MPI_Gather, formando la
+// matriz C completa.
+//
+// Por que dos Scatter en vez de uno: MPI_Scatter reparte un solo bloque de
+// memoria contiguo. Para repartir A y B en una sola llamada habria que
+// armar a mano un buffer combinado (por ejemplo, poniendo todo A seguido de
+// todo B, o intercalando sus filas) y luego separar ese buffer otra vez
+// dentro de cada proceso. Con dos llamadas separadas cada matriz viaja con
+// su propio buffer, sin ese paso extra de armar y desarmar.
+//
+// Convencion: las matrices se representan como arreglos 1D en row-major
+// (el elemento (fila, columna) esta en datos[fila * N + columna]), que es
+// el formato que espera MPI_Scatter/MPI_Gather al repartir bloques de filas
+// contiguos en memoria.
+// ============================================================================
+
+#include <iostream>
+#include <mpi.h>
+#include <cstdio>
+#include <cstdlib>
+
+int main(int argc, char** argv){
+
+    MPI_Init(&argc, &argv);
+
+    int nprocs, rank;
+
+    MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    int N = 16; // tamaño de las matrices (N x N)
+
+    int *A = nullptr;
+    int *B = nullptr;
+    int *C = nullptr;
+
+    // generar matrices A y B en el proceso 0
+    if(rank == 0){
+        A = new int[N*N];
+        B = new int[N*N];
+        C = new int[N*N];
+
+        // inicializar A y B con algunos valores
+        for(int i = 0; i < N*N; i++){
+            A[i] = i;
+            B[i] = i*2;
+        }
+    }
+
+    // Repartir A y B por filas con MPI_Scatter.
+    // Como N es multiplo de nprocs, cada proceso recibe la misma cantidad
+    // de filas, asi que alcanza con un solo sendcount (no hace falta
+    // sendcounts/displs, eso es solo para reparto desparejo con Scatterv).
+    int filas_por_proceso = N / nprocs;
+    int cantidad_local = filas_por_proceso * N; // enteros que recibe cada proceso
+
+    int *A_local = new int[cantidad_local];
+    int *B_local = new int[cantidad_local];
+    int *C_local = new int[cantidad_local];
+
+    MPI_Scatter(A, cantidad_local, MPI_INT, A_local, cantidad_local, MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Scatter(B, cantidad_local, MPI_INT, B_local, cantidad_local, MPI_INT, 0, MPI_COMM_WORLD);
+
+    // Sumar las filas locales: C_local = A_local + B_local
+    for(int i = 0; i < cantidad_local; i++){
+        C_local[i] = A_local[i] + B_local[i];
+    }
+
+    // Juntar los resultados parciales en el proceso 0
+    MPI_Gather(C_local, cantidad_local, MPI_INT, C, cantidad_local, MPI_INT, 0, MPI_COMM_WORLD);
+
+    if(rank == 0){
+        std::cout << "Matriz C (A + B):" << std::endl;
+        for(int i = 0; i < N; i++){
+            for(int j = 0; j < N; j++){
+                std::cout << C[i*N + j] << " ";
+            }
+            std::cout << std::endl;
+        }
+    }
+
+    delete[] A_local;
+    delete[] B_local;
+    delete[] C_local;
+
+    if(rank == 0){
+        delete[] A;
+        delete[] B;
+        delete[] C;
+    }
+
+    MPI_Finalize();
+}
