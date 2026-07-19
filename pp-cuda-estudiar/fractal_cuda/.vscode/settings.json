@@ -1,0 +1,14 @@
+{
+  "cmake.generator": "Ninja Multi-Config",
+  "cmake.buildDirectory": "${workspaceFolder}/build",
+  "cmake.configureOnOpen": true,
+  "cmake.configureSettings": {
+    "CMAKE_TOOLCHAIN_FILE": "C:/tools/vcpkg-2026.03.18/scripts/buildsystems/vcpkg.cmake",
+    "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+  },
+  "C_Cpp.default.compileCommands": "${workspaceFolder}/build/compile_commands.json",
+  "C_Cpp.default.includePath": [
+    "${workspaceFolder}/**",
+    "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v13.3/include"
+  ]
+}
