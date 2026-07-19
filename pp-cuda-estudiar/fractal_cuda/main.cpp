@@ -33,7 +33,7 @@ static bool load_font(sf::Font& font) {
         "arial.ttf"
     };
     for (const auto& path : candidates) {
-        if (font.loadFromFile(path)) {
+        if (font.openFromFile(path)) {
             return true;
         }
     }
@@ -64,40 +64,37 @@ int main() {
     CHECK_CUDA(cudaMalloc(reinterpret_cast<void**>(&device_pixels), host_pixels.size() * sizeof(Pixel)));
     cuda_upload_palette(palette().data());
 
-    sf::RenderWindow window(sf::VideoMode(params.width, params.height), "Burning Ship CUDA");
+    sf::RenderWindow window(sf::VideoMode({static_cast<unsigned int>(params.width), static_cast<unsigned int>(params.height)}), "Burning Ship CUDA");
     window.setFramerateLimit(60);
 
-    sf::Texture texture;
-    texture.create(params.width, params.height);
+    sf::Texture texture(sf::Vector2u{static_cast<unsigned int>(params.width), static_cast<unsigned int>(params.height)});
     sf::Sprite sprite(texture);
 
     sf::Font font;
     const bool has_font = load_font(font);
-    sf::Text overlay;
+    sf::Text overlay(font);
     if (has_font) {
-        overlay.setFont(font);
         overlay.setCharacterSize(20);
         overlay.setFillColor(sf::Color::White);
-        overlay.setPosition(14.f, 10.f);
+        overlay.setPosition(sf::Vector2f{14.f, 10.f});
     }
 
     Mode mode = Mode::Cuda;
     double last_ms = measure_cuda(params, host_pixels, device_pixels);
-    texture.update(reinterpret_cast<const sf::Uint8*>(host_pixels.data()));
+    texture.update(reinterpret_cast<const std::uint8_t*>(host_pixels.data()));
 
     while (window.isOpen()) {
-        sf::Event event{};
-        while (window.pollEvent(event)) {
-            if (event.type == sf::Event::Closed) {
+        while (const auto event = window.pollEvent()) {
+            if (event->is<sf::Event::Closed>()) {
                 window.close();
-            } else if (event.type == sf::Event::KeyPressed) {
-                if (event.key.code == sf::Keyboard::Escape) {
+            } else if (const auto* keyPressed = event->getIf<sf::Event::KeyPressed>()) {
+                if (keyPressed->code == sf::Keyboard::Key::Escape) {
                     window.close();
-                } else if (event.key.code == sf::Keyboard::Space) {
+                } else if (keyPressed->code == sf::Keyboard::Key::Space) {
                     mode = (mode == Mode::Cuda) ? Mode::Cpu : Mode::Cuda;
-                } else if (event.key.code == sf::Keyboard::Up) {
+                } else if (keyPressed->code == sf::Keyboard::Key::Up) {
                     params.max_iter += 25;
-                } else if (event.key.code == sf::Keyboard::Down) {
+                } else if (keyPressed->code == sf::Keyboard::Key::Down) {
                     params.max_iter = std::max(25, params.max_iter - 25);
                 }
             }
@@ -109,8 +106,7 @@ int main() {
             last_ms = measure_cuda(params, host_pixels, device_pixels);
         }
 
-        texture.update(reinterpret_cast<const sf::Uint8*>(host_pixels.data()));
-
+        texture.update(reinterpret_cast<const std::uint8_t*>(host_pixels.data()));
         window.clear();
         window.draw(sprite);
 
